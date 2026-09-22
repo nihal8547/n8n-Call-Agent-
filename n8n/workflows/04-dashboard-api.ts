@@ -1,7 +1,7 @@
 import { workflow, node, trigger, sticky, newCredential, expr } from '@n8n/workflow-sdk';
 
 const CORS = { entries: [{ name: 'Access-Control-Allow-Origin', value: '*' }] };
-const PG = { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') };
+const PG = { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') };
 
 // ── Route 1: GET /api/calls ──────────────────────────────
 const callsWebhook = trigger({
@@ -73,7 +73,7 @@ const queryStats = node({
     name: 'Get Stats',
     parameters: {
       operation: 'executeQuery',
-      query: "SELECT count(*) AS total_calls, count(*) FILTER (WHERE escalated) AS escalated, count(*) FILTER (WHERE status = 'completed') AS completed, COALESCE(avg(duration_sec), 0)::int AS avg_duration_sec, (SELECT count(*) FROM bookings WHERE tenant_id = $1::uuid) AS bookings, (SELECT count(*) FROM leads WHERE tenant_id = $1::uuid) AS leads FROM calls WHERE tenant_id = $1::uuid",
+      query: "SELECT count(*) AS total_calls, count(*) FILTER (WHERE escalated) AS escalated, count(*) FILTER (WHERE status = 'completed') AS completed, COALESCE(avg(duration_sec), 0)::int AS avg_duration_sec, (SELECT count(*) FROM bookings b WHERE b.tenant_id = $1::uuid) AS bookings, (SELECT count(*) FROM leads l WHERE l.tenant_id = $1::uuid) AS leads FROM calls WHERE calls.tenant_id = $1::uuid",
       options: { queryReplacement: expr('{{ [$json.query?.tenantId || "00000000-0000-0000-0000-000000000001"] }}') }
     },
     credentials: PG,

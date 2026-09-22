@@ -90,7 +90,7 @@ const searchKnowledge = node({
         metadata: { metadataValues: [{ name: 'tenant_id', value: nodeJson(normalizeInput, 'tenantId') }] }
       }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     subnodes: { embedding: geminiEmbeddings },
     position: [920, 40]
   },
@@ -135,7 +135,7 @@ const queryAvailability = node({
       query: "SELECT id, resource_name, slot FROM availability WHERE tenant_id = $1::uuid AND is_booked = false AND slot > now() ORDER BY slot ASC LIMIT 5",
       options: { queryReplacement: expr('{{ [$json.tenantId] }}') }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     position: [920, 240]
   },
   output: [{ id: 'slot-1', resource_name: 'Dr. Rao', slot: '2026-09-22T10:00:00Z' }]
@@ -158,7 +158,7 @@ const insertAppointment = node({
       query: "INSERT INTO bookings (tenant_id, call_id, type, customer_name, customer_phone, customer_email, scheduled_for, details) VALUES ($1::uuid, NULLIF($2,'')::uuid, 'appointment', $3, $4, $5, NULLIF($6,'')::timestamptz, $7::jsonb) RETURNING id, status",
       options: { queryReplacement: expr("{{ [$json.tenantId, ($json.callId || ''), $json.name, $json.phone, $json.email, ($json.datetime || ''), JSON.stringify({ doctor: $json.doctor, notes: $json.notes })] }}") }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     position: [920, 400]
   },
   output: [{ id: 'booking-1', status: 'confirmed' }]
@@ -181,7 +181,7 @@ const insertReservation = node({
       query: "INSERT INTO bookings (tenant_id, call_id, type, customer_name, customer_phone, party_size, scheduled_for, details) VALUES ($1::uuid, NULLIF($2,'')::uuid, 'reservation', $3, $4, $5, NULLIF($6,'')::timestamptz, $7::jsonb) RETURNING id, status",
       options: { queryReplacement: expr("{{ [$json.tenantId, ($json.callId || ''), $json.name, $json.phone, ($json.partySize || null), ($json.datetime || ''), JSON.stringify({ notes: $json.notes })] }}") }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     position: [920, 560]
   },
   output: [{ id: 'reservation-1', status: 'confirmed' }]
@@ -204,7 +204,7 @@ const insertLead = node({
       query: "INSERT INTO leads (tenant_id, call_id, name, phone, email, data) VALUES ($1::uuid, NULLIF($2,'')::uuid, $3, $4, $5, $6::jsonb) RETURNING id, status",
       options: { queryReplacement: expr("{{ [$json.tenantId, ($json.callId || ''), $json.name, $json.phone, $json.email, JSON.stringify({ query: $json.query, notes: $json.notes })] }}") }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     position: [920, 720]
   },
   output: [{ id: 'lead-1', status: 'new' }]

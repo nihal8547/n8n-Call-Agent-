@@ -49,7 +49,7 @@ const saveCall = node({
       query: "INSERT INTO calls (tenant_id, from_number, to_number, provider, status, duration_sec, recording_url, transcript, ended_at) VALUES ($1::uuid, $2, $3, $4, 'completed', $5, $6, $7, now()) RETURNING id",
       options: { queryReplacement: expr("{{ [$json.tenantId, $json.from, $json.to, $json.provider, $json.durationSec, $json.recordingUrl, $json.transcript] }}") }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     position: [660, 400]
   },
   output: [{ id: 'call-1' }]
@@ -92,7 +92,7 @@ const updateSummary = node({
       query: "UPDATE calls SET summary = $1 WHERE id = $2::uuid RETURNING id, summary",
       options: { queryReplacement: expr('{{ [$json.output, $("Save Call").item.json.id] }}') }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     position: [1100, 400]
   },
   output: [{ id: 'call-1', summary: 'Caller booked an appointment for Monday 10am.' }]
@@ -128,7 +128,7 @@ const logWhatsApp = node({
       query: "INSERT INTO notifications (tenant_id, call_id, channel, recipient, status, provider_message_id) VALUES ($1::uuid, NULLIF($2,'')::uuid, 'whatsapp', $3, 'sent', $4) RETURNING id",
       options: { queryReplacement: expr('{{ [$("Normalize Call End").item.json.tenantId, $("Save Call").item.json.id, $("Normalize Call End").item.json.customerPhone, ($json.messages && $json.messages[0] ? $json.messages[0].id : "")] }}') }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     position: [1540, 320]
   },
   output: [{ id: 'notif-1' }]
@@ -175,7 +175,7 @@ const logEmail = node({
       query: "INSERT INTO notifications (tenant_id, call_id, channel, recipient, status, provider_message_id) VALUES ($1::uuid, NULLIF($2,'')::uuid, 'email', $3, 'sent', $4) RETURNING id",
       options: { queryReplacement: expr('{{ [$("Normalize Call End").item.json.tenantId, $("Save Call").item.json.id, $("Normalize Call End").item.json.customerEmail, ($json.id || "")] }}') }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     position: [1540, 560]
   },
   output: [{ id: 'notif-2' }]

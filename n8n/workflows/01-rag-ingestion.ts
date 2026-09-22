@@ -85,7 +85,7 @@ const storeChunks = vectorStore({
       tableName: 'kb_vectors',
       options: { columnNames: { values: { idColumnName: 'id', vectorColumnName: 'embedding', contentColumnName: 'text', metadataColumnName: 'metadata' } } }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') },
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
     subnodes: { embedding: geminiEmbeddings, documentLoader: dataLoader },
     position: [680, 300]
   },

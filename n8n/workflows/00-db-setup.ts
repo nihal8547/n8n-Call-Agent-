@@ -132,7 +132,7 @@ const createSchema = node({
         + "INSERT INTO agent_configs (tenant_id, template, system_prompt, greeting) VALUES ('00000000-0000-0000-0000-000000000001', 'hospital', 'You are the phone assistant for Demo Clinic. Answer only from the knowledge base. Never give medical advice; transfer emergencies to a human.', 'Thank you for calling Demo Clinic, how can I help you today?') ON CONFLICT DO NOTHING;",
       options: { queryBatching: 'transaction' }
     },
-    credentials: { postgres: newCredential('Postgres account', 'VMIeqA8K3WV79fDr') }
+    credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') }
   },
   output: [{ success: true }]
 });
