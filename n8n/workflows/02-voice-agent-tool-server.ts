@@ -1,4 +1,4 @@
-import { workflow, node, trigger, sticky, newCredential, switchCase, embeddings, expr, nodeJson } from '@n8n/workflow-sdk';
+import { workflow, node, trigger, sticky, newCredential, switchCase, expr } from '@n8n/workflow-sdk';
 
 const toolWebhook = trigger({
   type: 'n8n-nodes-base.webhook',
@@ -61,57 +61,63 @@ const routeAction = switchCase({
   }
 });
 
-// --- Branch 0: search_knowledge (RAG) ---
-const geminiEmbeddings = embeddings({
-  type: '@n8n/n8n-nodes-langchain.embeddingsGoogleGemini',
-  version: 1,
+// --- Branch 0: search_knowledge (RAG, no pgvector) ---
+// Gemini embed query (HTTP) -> fetch kb_docs -> cosine similarity in Code.
+const embedQueryKB = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.5,
   config: {
-    name: 'Gemini Embeddings',
-    parameters: { modelName: 'models/gemini-embedding-001' },
-    credentials: { googlePalmApi: newCredential('Google Gemini(PaLM) Api account', 'wSi9Z7qXWfRj5Zef') },
-    position: [920, 120]
-  }
+    name: 'Embed Query KB',
+    parameters: {
+      method: 'POST',
+      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent',
+      authentication: 'predefinedCredentialType',
+      nodeCredentialType: 'googlePalmApi',
+      sendBody: true,
+      contentType: 'json',
+      specifyBody: 'json',
+      jsonBody: expr('{{ { "model": "models/gemini-embedding-001", "content": { "parts": [ { "text": $json.query } ] } } }}')
+    },
+    credentials: { googlePalmApi: newCredential('Google Gemini(PaLM) Api account 2', 'llfQcbvug44jx5vx') },
+    position: [900, 40]
+  },
+  output: [{ embedding: { values: [0.01, 0.02, 0.03] } }]
 });
 
-const searchKnowledge = node({
-  type: '@n8n/n8n-nodes-langchain.vectorStorePGVector',
-  version: 1.3,
+const fetchKBChunks = node({
+  type: 'n8n-nodes-base.postgres',
+  version: 2.7,
   config: {
-    name: 'Search Knowledge Base',
+    name: 'Fetch KB Chunks',
     parameters: {
-      mode: 'load',
-      tableName: 'kb_vectors',
-      prompt: nodeJson(normalizeInput, 'query'),
-      topK: 5,
-      includeDocumentMetadata: true,
-      options: {
-        distanceStrategy: 'cosine',
-        columnNames: { values: { idColumnName: 'id', vectorColumnName: 'embedding', contentColumnName: 'text', metadataColumnName: 'metadata' } },
-        metadata: { metadataValues: [{ name: 'tenant_id', value: nodeJson(normalizeInput, 'tenantId') }] }
-      }
+      operation: 'executeQuery',
+      query: 'SELECT id, title, content, embedding FROM kb_docs WHERE tenant_id = $1::uuid',
+      options: { queryReplacement: expr('{{ [$("Normalize Tool Call").item.json.tenantId] }}') }
     },
     credentials: { postgres: newCredential('Postgres account 3', 'zLgWxPjtKwojUv2o') },
-    subnodes: { embedding: geminiEmbeddings },
-    position: [920, 40]
+    position: [1100, 40]
   },
-  output: [{ document: { pageContent: 'Visiting hours are 10am to 7pm daily.', metadata: { title: 'Visiting Hours' } }, score: 0.91 }]
+  output: [{ id: 'doc-1', title: 'Visiting Hours', content: 'Visiting hours are 10am to 7pm every day.', embedding: [0.01, 0.02, 0.03] }]
 });
 
 const formatKnowledge = node({
   type: 'n8n-nodes-base.code',
   version: 2,
   config: {
-    name: 'Format Knowledge Context',
+    name: 'Rank KB Chunks',
     parameters: {
       mode: 'runOnceForAllItems',
-      jsCode: "const items = $input.all();\n"
-        + "const parts = items.map(function(it){ const d = it.json.document || it.json; return (d.pageContent || d.text || ''); }).filter(Boolean);\n"
-        + "const sources = items.map(function(it){ const d = it.json.document || it.json; return (d.metadata && d.metadata.title) || null; }).filter(Boolean);\n"
-        + "return [{ json: { status: 'ok', action: 'search_knowledge', context: parts.join('\\n---\\n'), matches: parts.length, sources: sources } }];"
+      jsCode: "const q = $('Embed Query KB').first().json.embedding.values;\n"
+        + "const rows = $input.all();\n"
+        + "function cos(a, b) { let d = 0, na = 0, nb = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { d += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; } return d / ((Math.sqrt(na) * Math.sqrt(nb)) || 1); }\n"
+        + "const scored = rows.map(function (r) { let e = r.json.embedding; if (typeof e === 'string') { e = JSON.parse(e); } return { title: r.json.title, content: r.json.content, score: Number(cos(q, e).toFixed(4)) }; });\n"
+        + "scored.sort(function (a, b) { return b.score - a.score; });\n"
+        + "const top = scored.slice(0, 3);\n"
+        + "return [{ json: { status: 'ok', action: 'search_knowledge', matches: top.length, context: top.map(function (t) { return t.content; }).join('\\n---\\n'), sources: top.map(function (t) { return t.title; }) } }];"
     },
-    position: [1140, 40]
+    position: [1300, 120]
   },
-  output: [{ status: 'ok', action: 'search_knowledge', context: 'Visiting hours are 10am to 7pm daily.', matches: 1, sources: ['Visiting Hours'] }]
+  output: [{ status: 'ok', action: 'search_knowledge', context: 'Visiting hours are 10am to 7pm every day.', matches: 1, sources: ['Visiting Hours'] }]
 });
 
 const respondKnowledge = node({
@@ -244,7 +250,7 @@ const respondTransfer = node({
 });
 
 const note = sticky(
-  '## Voice Agent Tool Server (core)\nPOST /webhook/voice-agent/tool with { action, tenantId, callId, ...args }.\nThe voice platform (Gemini Live / VAPI / telephony) calls this per function call. Routed by action: search_knowledge (pgvector RAG), check_availability, book_appointment, make_reservation, capture_lead, or human transfer.',
+  '## Voice Agent Tool Server (core)\nPOST /webhook/voice-agent/tool with { action, tenantId, callId, ...args }.\nThe voice platform (Gemini Live / VAPI / telephony) calls this per function call. Routed by action: search_knowledge (RAG over kb_docs, no pgvector needed), check_availability, book_appointment, make_reservation, capture_lead, or human transfer.',
   [toolWebhook, normalizeInput, routeAction],
   { color: 5 }
 );
@@ -253,7 +259,7 @@ export default workflow('voice-agent-tool-server', 'Voice Agent 2 — Tool Serve
   .add(toolWebhook)
   .to(normalizeInput)
   .to(routeAction
-    .onCase(0, searchKnowledge.to(formatKnowledge).to(respondKnowledge))
+    .onCase(0, embedQueryKB.to(fetchKBChunks).to(formatKnowledge).to(respondKnowledge))
     .onCase(1, queryAvailability.to(respondAvailability))
     .onCase(2, insertAppointment.to(respondAppointment))
     .onCase(3, insertReservation.to(respondReservation))
